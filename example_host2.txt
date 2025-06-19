@@ -1,0 +1,95 @@
+!
+version 16.9
+service timestamps debug datetime msec localtime show-timezone
+service timestamps log datetime localtime show-timezone
+platform qfp utilization monitor load 80
+no platform punt-keepalive disable-kernel-core
+!
+hostname host2
+!
+!
+!
+!
+!
+ip dhcp database nvram:/dhcp-server.db
+ip dhcp excluded-address 192.168.5.1
+ip dhcp excluded-address 192.168.5.3 192.168.5.6
+ip dhcp excluded-address 192.168.5.12 
+ip dhcp ping packets 3
+ip dhcp ping timeout 1000
+!
+ip dhcp pool lan_host2
+ network 192.168.5.0 255.255.255.192
+ default-router 192.168.5.1
+ dns-server 192.168.5.1
+ option 42 ip 192.168.5.1
+!
+ip dhcp pool policom_h2_de3f
+ host 192.168.5.10 255.255.255.192
+ client-identifier xxx.xxx.xxde.3f
+ default-router 192.168.5.1
+ option 42 ip 192.168.5.1
+ option 4 ip 192.168.5.1
+ option 120 hex xxxx.xxxx.xxx.xxx.xxxx.xxx.xxxx
+ dns-server 192.168.5.1
+!
+ip dhcp pool policom_h2_fb4f
+ host 192.168.5.15 255.255.255.192
+ client-identifier xxx.xxxx.xxxx.xx
+ default-router 192.168.5.1
+!
+ip dhcp pool printer_fef5
+ host 192.168.5.3 255.255.255.192
+ client-identifier xxxx.xxxx.xxxx.xx
+ default-router 192.168.5.1
+!
+!
+!
+no ip bootp server
+ip domain timeout 2
+ip domain name temp
+!
+
+!
+interface Loopback0
+ description - need exclude for dhcp config
+ ip address 172.16.55.1 255.255.255.255
+!
+interface Tunnel4301
+ description Tunnel to Branch Office - need exclude for dhcp config
+ ip address 172.16.56.1 255.255.255.0
+ no ip redirects
+!
+!
+interface Null0
+ no ip unreachables
+!
+interface FastEthernet0
+ no ip address
+!
+interface FastEthernet1
+ no ip address
+!
+interface FastEthernet2
+ no ip address
+!
+interface FastEthernet3
+ no ip address
+!
+interface FastEthernet4
+ description Example WAN
+ ip address 22.22.22.1 255.255.255.0
+ no ip redirects
+!
+interface Vlan1
+ description Example LAN
+ ip address 192.168.5.1 255.255.255.192
+ ip nat inside
+ ip virtual-reassembly in
+ ip tcp adjust-mss 1452
+!
+!
+ip forward-protocol nd
+no ip http server
+no ip http secure-server
+!

@@ -1,0 +1,112 @@
+!
+version 16.9
+service timestamps debug datetime msec localtime show-timezone
+service timestamps log datetime localtime show-timezone
+platform qfp utilization monitor load 80
+no platform punt-keepalive disable-kernel-core
+!
+hostname host1
+!
+!
+!
+!
+!
+ip dhcp database nvram:/dhcp-server.db
+ip dhcp excluded-address 192.168.1.1
+ip dhcp excluded-address 192.168.1.8
+ip dhcp ping packets 3
+ip dhcp ping timeout 1000
+!
+ip dhcp pool lan_host1
+ description LAN Hosts DHCP Pool
+ network 192.168.1.0 255.255.255.192
+ default-router 192.168.1.1
+ dns-server 192.168.1.1
+ option 42 ip 192.168.1.1
+!
+ip dhcp pool policom_h1_de31
+ host 192.168.1.10 255.255.255.192
+ client-identifier xxxx.xxxx.xxde.31
+ default-router 192.168.1.1
+ option 42 ip 192.168.1.1
+ option 4 ip 192.168.1.1
+ option 120 hex xxxx.xxxx.xxx.xxx.xxxx.xxx.xxxx
+ dns-server 192.168.1.1
+!
+ip dhcp pool policom_h1_fb4f
+ host 192.168.1.12 255.255.255.192
+ client-identifier xxxx.xxxxx.xxfb.4f
+ default-router 192.168.1.1
+!
+ip dhcp pool printer_fef5
+ host 192.168.1.14 255.255.255.192
+ client-identifier xxxx.xxxx.xxxx.xx
+ default-router 192.168.1.1
+!
+ip dhcp pool policom_h8_d132
+ host 192.168.100.10 255.255.255.0
+ client-identifier xxxx.xxxx.xxd1.32
+ default-router 192.168.100.1
+!
+ip dhcp pool lan2_host1
+ network 192.168.100.0 255.255.255.0
+ default-router 192.168.100.1
+!
+!
+!
+no ip bootp server
+ip domain timeout 2
+ip domain name temp
+!
+
+!
+interface Loopback0
+ description - need exclude for dhcp config
+ ip address 172.16.1.1 255.255.255.255
+!
+interface Tunnel4301
+ description Tunnel to Branch Office - need exclude for dhcp config
+ ip address 172.16.2.1 255.255.255.0
+ no ip redirects
+!
+!
+interface Null0
+ no ip unreachables
+!
+interface FastEthernet0
+ no ip address
+!
+interface FastEthernet1
+ no ip address
+!
+interface FastEthernet2
+ no ip address
+!
+interface FastEthernet3
+ no ip address
+!
+interface FastEthernet4
+ description Example WAN
+ ip address 11.11.11.1 255.255.255.0
+ no ip redirects
+!
+interface Vlan1
+ description Example LAN
+ ip address 192.168.1.1 255.255.255.192
+ ip nat inside
+ ip virtual-reassembly in
+ ip tcp adjust-mss 1452
+!
+interface Vlan2
+ ip address 192.168.100.1 255.255.255.0
+!
+ip forward-protocol nd
+no ip http server
+no ip http secure-server
+!
+ip nat inside source route-map NAT interface FastEthernet4 overload
+!
+alias exec sid show interface description
+!
+!
+!
