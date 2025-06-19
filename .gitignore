@@ -20,5 +20,10 @@
 # !Makefile
 .vscode/launch.json
 
+# Example files:
+!example_host1.txt
+!example_host2.txt
+!report_example.txt
+
 # ...even if they are in subdirectories
 !*/
