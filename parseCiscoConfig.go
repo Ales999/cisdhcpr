@@ -67,6 +67,7 @@ func parseCiscoConfig(txtlines []string) ([]DH, error) {
 		}
 		// Если строка содержит dhcp пулл до начинаем обрабатывать данный блок
 		if strings.HasPrefix(line, "ip dhcp pool") {
+			// Парсим блок данных DHCP настроек
 			dhcpPool := parseDhcpPool(&txtlines, line, n)
 			dhcpPools = append(dhcpPools, dhcpPool)
 		}

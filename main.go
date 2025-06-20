@@ -7,40 +7,51 @@ import (
 )
 
 type ReservedHost struct {
-	HostName string
-	HostIP   netip.Addr
-	HostMac  string
+	HostName    string
+	HostIP      netip.Addr
+	GwIP        netip.Addr
+	HostMac     string
+	HostOptions []string // Дополнительные опции в DHCP
 }
 
 type DH struct {
 	Scope      string         // Скоп DHCP
 	Vlan       string         // Имя VLAN
+	Options    []string       // Дополнительные опции в DHCP
 	Prefix     netip.Prefix   // Префикс сети
 	StartIP    netip.Addr     // Начальный IP-адрес в скоп
 	EndIP      netip.Addr     // Конечный IP-адрес в скопе
 	Gateway    netip.Addr     // Шлюз
 	Exclusions []netip.Addr   // Исключения
 	Reserved   []ReservedHost // Резервированные адреса.
+	MaskBit    int            // Скольео бит в сети
 	HostType   bool           // Тип хоста false - network, true - host
 }
 
 func (d DH) Print() {
-	fmt.Println("Имя скопа:", d.Scope)
-	fmt.Println("Vlan:", d.Vlan)
-	fmt.Println("Начальный IP-адрес:", d.StartIP)
-	fmt.Println("Конечный IP-адрес:", d.EndIP)
-	fmt.Println("Адрес шлюза:", d.Gateway)
+	fmt.Println("Scope:   ", d.Scope)
+	fmt.Println("Vlan:    ", d.Vlan)
+	fmt.Println("Mask Bit:", d.MaskBit)
+	fmt.Println("Start IP:", d.StartIP)
+	fmt.Println("Stop  IP:", d.EndIP)
+	fmt.Println("Gateway: ", d.Gateway)
+	for _, o := range d.Options {
+		fmt.Println("\t", o)
+	}
 	if len(d.Exclusions) > 0 {
-		fmt.Println("Исключения:")
+		fmt.Println("Excludes:")
 		for _, e := range d.Exclusions {
 			fmt.Println("\t", e.String())
 		}
 	}
 	if len(d.Reserved) > 0 {
-		fmt.Println("Резервированные IP:")
+		fmt.Println("Reserved IP:")
 		for _, r := range d.Reserved {
 			if r.HostIP.IsValid() {
-				fmt.Println("\t Host:", r.HostName, "IP:", r.HostIP.String(), "MAC:", r.HostMac)
+				fmt.Println("\t Host:", r.HostName, "IP:", r.HostIP.String(), "MAC:", r.HostMac, "GW:", r.GwIP)
+				for _, opt := range r.HostOptions {
+					fmt.Println("\t\t ", opt)
+				}
 			}
 		}
 	}
@@ -49,7 +60,7 @@ func (d DH) Print() {
 func printHostReport(dhcfg []DH) {
 	for _, d := range dhcfg {
 		if !d.HostType {
-			fmt.Println("---")
+			fmt.Println("-----")
 			d.Print()
 		}
 	}
@@ -82,7 +93,8 @@ func main() {
 		if info, err := os.Stat(filePath); os.IsNotExist(err) || info.IsDir() {
 			fmt.Println("Файл не найден или это директория:", arg)
 		} else {
-			fmt.Println("Файл найден:", arg)
+			// Открываем файл для чтения и проверяем его содержимое
+			fmt.Println("--> Open file:", arg)
 			if ok, err := checkTextFile(filePath); ok && err == nil {
 				// Передаем полный путь файла в функцию parseFile
 				dhcfg, err := parseFile(arg)

@@ -26,17 +26,16 @@ func parseDhcpPool(txtlines *[]string, currentLine string, n int) DH {
 	}
 
 	// Бежим по этому блоку
-	for _, tlst := range tlsts {
+	for i, tlst := range tlsts {
 		// Если блок настроек DHCP пула заканчивается то прерываем данный for
 		if !strings.HasPrefix(tlst, " ") || strings.HasPrefix(tlst, "!") {
 			break
 		}
 		// Example of line: ' network 192.168.1.0 255.255.255.0'
 		if after, ok := strings.CutPrefix(tlst, " network "); ok {
+
 			// * Получаем сеть и маску подсети
 			network := strings.TrimSpace(after)
-
-			//network := strings.TrimSpace(strings.Split(tlst, " ")[2])
 
 			// Разбиваем строку на IP и маску подсети
 			parts := make([]string, 2)
@@ -54,6 +53,8 @@ func parseDhcpPool(txtlines *[]string, currentLine string, n int) DH {
 			if err != nil {
 				log.Fatalf("Ошибка при разборе маски: %v", err)
 			}
+			// Сохраняем длину сети в битах
+			dh.MaskBit = maskBits
 
 			// Создание префикса сети
 			prefix := netip.PrefixFrom(addr, maskBits)
@@ -69,17 +70,30 @@ func parseDhcpPool(txtlines *[]string, currentLine string, n int) DH {
 
 				log.Fatalf("Ошибка при анализе подсети: %v", err)
 			}
-			firstIP := subnet.FirstUsable
-			lastIP := subnet.LastUsable
 
 			// DEBUG: Вывод начального и конечного IP адресов
-			//fmt.Printf("Начальный IP адрес: %s\n", firstIP)
-			//fmt.Printf("Конечный IP адрес: %s\n", lastIP)
+			//fmt.Printf("Начальный IP адрес: %s\n", subnet.FirstUsable)
+			//fmt.Printf("Конечный IP адрес: %s\n", subnet.LastUsable)
 
-			dh.StartIP = firstIP
-			dh.EndIP = lastIP
+			dh.StartIP = subnet.FirstUsable
+			dh.EndIP = subnet.LastUsable
+			// Ищем опции DHCP для сети
+			// Если осталось в файле больше 15 строк то берем только 15 строк
+			ntlsts := tlsts[i+1:]
+			// Бежим по оставшимя строкам и добавляем в структуру DHCP опции
+			for _, ntlst := range ntlsts {
+				// Если блок настроек DHCP пула заканчивается то прерываем данный for
+				if !strings.HasPrefix(ntlst, " ") || strings.HasPrefix(ntlst, "!") {
+					break
+				}
+				// Если есть блок настроек DHCP пула
+				if strings.Contains(ntlst, " option") {
+					//reserv .HostOptions = append(reserv.HostOptions, strings.TrimSpace(mtlst))
+					dh.Options = append(dh.Options, strings.TrimSpace(ntlst))
+				}
+			}
 
-		}
+		} // end if 'network'
 		if after, ok := strings.CutPrefix(tlst, " default-router "); ok {
 			// * Получаем gateway ip address *
 			gwIp := netip.MustParseAddr(strings.TrimSpace(after))
@@ -96,14 +110,7 @@ func parseDhcpPool(txtlines *[]string, currentLine string, n int) DH {
 			reserv.HostIP = hostIp
 			reserv.HostName = scopeName
 			// Ищем MAC адреса для этого хоста
-			// Если осталось в файле больше 15 строк то берем только 15 строк
-			endIndex := n + 15
-			var mtlsts []string
-			if endIndex < len((*txtlines)[n+1:]) {
-				mtlsts = (*txtlines)[n+1 : endIndex]
-			} else { // Иначе - до конца файла
-				mtlsts = (*txtlines)[n+1:]
-			}
+			mtlsts := tlsts[i+1:]
 			for _, mtlst := range mtlsts {
 				// Если блок настроек DHCP пула заканчивается то прерываем данный for
 				if !strings.HasPrefix(mtlst, " ") || strings.HasPrefix(mtlst, "!") {
@@ -123,6 +130,11 @@ func parseDhcpPool(txtlines *[]string, currentLine string, n int) DH {
 					}
 					reserv.HostMac = mac
 				}
+				// Если блок настроек DHCP пула
+				if strings.Contains(mtlst, " option") {
+					reserv.HostOptions = append(reserv.HostOptions, strings.TrimSpace(mtlst))
+				}
+
 			}
 
 		}
