@@ -8,99 +8,78 @@ import (
 	"strings"
 )
 
+// parseDhcpPool - парсим данные из строки конфигурации DHCP
 func parseDhcpPool(txtlines *[]string, currentLine string, n int) DH {
-	var tlsts []string
 	dh := DH{} // Создаем пустой объект для заполнения
 	reserv := ReservedHost{}
+	var err error
 
 	// Получаем имя скопа
 	scopeName := strings.TrimSpace(currentLine[12:])
 	dh.Scope = scopeName
 
-	// Если осталось в файле больше 15 строк то берем только 15 строк
-	endIndex := n + 15
-	if endIndex < len((*txtlines)[n+1:]) {
-		tlsts = (*txtlines)[n+1 : endIndex]
-	} else { // Иначе - до конца файла
-		tlsts = (*txtlines)[n+1:]
+	startIdx := n + 1
+	endIdx := startIdx + 15
+	if endIdx > len(*txtlines) {
+		endIdx = len(*txtlines)
 	}
 
-	// Бежим по этому блоку
-	for i, tlst := range tlsts {
-		// Если блок настроек DHCP пула заканчивается то прерываем данный for
-		if !strings.HasPrefix(tlst, " ") || strings.HasPrefix(tlst, "!") {
+	for i := startIdx; i < endIdx; i++ {
+		line := (*txtlines)[i]
+		if !strings.HasPrefix(line, " ") || strings.HasPrefix(line, "!") {
 			break
 		}
-		// Example of line: ' network 192.168.1.0 255.255.255.0'
-		if after, ok := strings.CutPrefix(tlst, " network "); ok {
-
-			// * Получаем сеть и маску подсети
+		if after, ok := strings.CutPrefix(line, " network "); ok {
 			network := strings.TrimSpace(after)
-
-			// Разбиваем строку на IP и маску подсети
-			parts := make([]string, 2)
-			n, err := fmt.Sscanf(network, "%s %s", &parts[0], &parts[1])
-			if n != 2 || err != nil {
+			fields := strings.Fields(network)
+			if len(fields) != 2 {
 				log.Fatalf("Ошибка при разборе строки: %v", err)
 			}
+			// Сохраним для упрощения отладки в переменные
+			_onlyIp := fields[0]
+			_onlyMask := fields[1]
 
-			// Преобразование IP и маски подсети в netip.Addr
-			addr, err := netip.ParseAddr(parts[0])
+			addr, err := netip.ParseAddr(_onlyIp)
 			if err != nil {
-				log.Fatalf("Ошибка при разборе адреса: %v", err)
+				log.Fatalf("Ошибка при разборе IP адреса: %v", err)
 			}
-			maskBits, err := ipMaskToBits(parts[1])
+			maskBits, err := ipMaskToBits(_onlyMask)
 			if err != nil {
 				log.Fatalf("Ошибка при разборе маски: %v", err)
 			}
 			// Сохраняем длину сети в битах
 			dh.MaskBit = maskBits
 
-			// Создание префикса сети
 			prefix := netip.PrefixFrom(addr, maskBits)
-			// Сохранение префикса сети в структуру DHCP
 			if !prefix.IsValid() {
 				log.Fatalln("Неверный префикс сети", network)
 			}
+			// Сохраняем префикс сети в объекте DHCP
 			dh.Prefix = prefix
 
-			// Теперь получаем начальный и конечный IP диапазона в виде структуры bp AnalyzeSubnet.go
 			subnet, err := AnalyzeSubnet(prefix)
 			if err != nil {
-
 				log.Fatalf("Ошибка при анализе подсети: %v", err)
 			}
-
-			// DEBUG: Вывод начального и конечного IP адресов
-			//fmt.Printf("Начальный IP адрес: %s\n", subnet.FirstUsable)
-			//fmt.Printf("Конечный IP адрес: %s\n", subnet.LastUsable)
-
+			// Сохраняем адрес стартовый IP и конечный IP подсети который можно выдавать ПК
 			dh.StartIP = subnet.FirstUsable
 			dh.EndIP = subnet.LastUsable
-			// Ищем опции DHCP для сети
-			// Если осталось в файле больше 15 строк то берем только 15 строк
-			ntlsts := tlsts[i+1:]
-			// Бежим по оставшимя строкам и добавляем в структуру DHCP опции
-			for _, ntlst := range ntlsts {
-				// Если блок настроек DHCP пула заканчивается то прерываем данный for
-				if !strings.HasPrefix(ntlst, " ") || strings.HasPrefix(ntlst, "!") {
+			// Ищем опции для сети
+			for j := i + 1; j < endIdx; j++ {
+				nextLine := (*txtlines)[j]
+				if !strings.HasPrefix(nextLine, " ") || strings.HasPrefix(nextLine, "!") {
 					break
 				}
-				// Если есть блок настроек DHCP пула
-				if strings.Contains(ntlst, " option") {
-					//reserv .HostOptions = append(reserv.HostOptions, strings.TrimSpace(mtlst))
-					dh.Options = append(dh.Options, strings.TrimSpace(ntlst))
+				if strings.Contains(nextLine, " option") {
+					dh.Options = append(dh.Options, strings.TrimSpace(nextLine))
 				}
 			}
 
-		} // end if 'network'
-		if after, ok := strings.CutPrefix(tlst, " default-router "); ok {
-			// * Получаем gateway ip address *
+		} else if after, ok := strings.CutPrefix(line, " default-router "); ok {
 			gwIp := netip.MustParseAddr(strings.TrimSpace(after))
 			dh.Gateway = gwIp
-		}
-		if after, ok := strings.CutPrefix(tlst, " host "); ok {
-			// * Получаем host ip address *
+
+		} else if after, ok := strings.CutPrefix(line, " host "); ok {
 			parts := strings.Split(strings.TrimSpace(after), " ")
 			var hostIp netip.Addr
 			if len(parts) >= 2 {
@@ -109,37 +88,37 @@ func parseDhcpPool(txtlines *[]string, currentLine string, n int) DH {
 			dh.HostType = true
 			reserv.HostIP = hostIp
 			reserv.HostName = scopeName
-			// Ищем MAC адреса для этого хоста
-			mtlsts := tlsts[i+1:]
-			for _, mtlst := range mtlsts {
-				// Если блок настроек DHCP пула заканчивается то прерываем данный for
-				if !strings.HasPrefix(mtlst, " ") || strings.HasPrefix(mtlst, "!") {
+			// Ищем даные и опции для хоста
+			for j := i + 1; j < endIdx; j++ {
+				nextLine := (*txtlines)[j]
+				if !strings.HasPrefix(nextLine, " ") || strings.HasPrefix(nextLine, "!") {
 					break
 				}
-				if after, ok := strings.CutPrefix(mtlst, " hardware-address "); ok {
+				// Перебираем строки блока для хоста
+				if after, ok := strings.CutPrefix(nextLine, " hardware-address "); ok {
 					mac, err := ParseMacString(after)
 					if err != nil {
 						fmt.Println("Ошибка при разборе MAC адреса:", err)
 					}
 					reserv.HostMac = mac
-				}
-				if after, ok := strings.CutPrefix(mtlst, " client-identifier "); ok {
+				} else if after, ok := strings.CutPrefix(nextLine, " client-identifier "); ok {
 					mac, err := ParseMacString(after)
 					if err != nil {
 						fmt.Println("Ошибка при разборе MAC адреса:", err)
 					}
 					reserv.HostMac = mac
-				}
-				// Если блок настроек DHCP пула
-				if strings.Contains(mtlst, " option") {
-					reserv.HostOptions = append(reserv.HostOptions, strings.TrimSpace(mtlst))
+				} else if strings.Contains(nextLine, " option") {
+					reserv.HostOptions = append(reserv.HostOptions, strings.TrimSpace(nextLine))
+				} else if after, ok := strings.CutPrefix(nextLine, " default-router "); ok {
+					gwIp := netip.MustParseAddr(strings.TrimSpace(after))
+					reserv.GwIP = gwIp
 				}
 
 			}
 
 		}
-
 	}
+
 	if len(reserv.HostMac) > 0 {
 		dh.Reserved = append(dh.Reserved, reserv)
 	}
