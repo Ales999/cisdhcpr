@@ -27,5 +27,14 @@ func parseFile(filePath string) (dhcpConfig []DH, err error) {
 		fmt.Println("Error parsing Cisco config:", err)
 		return []DH{}, err
 	}
-	return dhcpConfig, nil
+
+	// Вернем только networks, а не hosts, поскольку хосты уже добавлены к типу network.
+	var ret []DH
+	for _, d := range dhcpConfig {
+		// Если это не хост, а сеть, то добавляем в результат.
+		if !d.HostType {
+			ret = append(ret, d)
+		}
+	}
+	return ret, nil
 }
