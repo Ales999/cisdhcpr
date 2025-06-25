@@ -17,8 +17,11 @@ type ReservedHost struct {
 }
 
 type DH struct {
-	Scope      string         `json:"scope"`                // Скоп DHCP
-	Vlan       string         `json:"vlan"`                 // Имя VLAN
+	Scope string `json:"scope"` // Скоп DHCP
+	Vlan  string `json:"vlan"`  // Имя VLAN
+
+	// VrfName    string         `json:"vrf_name,omitempty"`   // Имя VRF  //TODO: Handle VRF addresses and pools
+
 	Options    []string       `json:"options,omitempty"`    // Дополнительные опции в DHCP
 	Prefix     netip.Prefix   `json:"prefix"`               // Префикс сети
 	StartIP    netip.Addr     `json:"start_ip"`             // Начальный IP-адрес в скоп
@@ -26,7 +29,7 @@ type DH struct {
 	Gateway    netip.Addr     `json:"gateway"`              // Шлюз
 	Exclusions []netip.Addr   `json:"exclusions,omitempty"` // Исключения
 	Reserved   []ReservedHost `json:"reserved,omitempty"`   // Резервированные адреса.
-	MaskBit    int            `json:"mask_bit"`             // Скольео бит в сети
+	MaskBit    int            `json:"mask_bit"`             // Сколько бит в сети
 	HostType   bool           `json:"-"`                    // Тип хоста false - network, true - host (не выводится в JSON)
 
 }
