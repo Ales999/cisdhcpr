@@ -52,6 +52,10 @@ func parseCiscoConfig(txtlines []string) ([]DH, error) {
 		if strings.HasPrefix(line, "ip dhcp excluded-address") {
 			excluded := line[25:] // Берем адрес исключения(ний)
 			excluded = strings.TrimSpace(excluded)
+			// TODO: Handle VRF addresses and pools
+			if strings.Contains(excluded, "vrf") {
+				continue // Skip if it's a VRF address
+			}
 			exclIps, err := parseDhcpExcluded(excluded)
 			if err != nil {
 				fmt.Println(err)
