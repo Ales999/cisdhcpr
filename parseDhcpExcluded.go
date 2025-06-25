@@ -16,7 +16,7 @@ func parseDhcpExcluded(ipString string) ([]net.IP, error) {
 		endIP := parseSingleIP(ips[1])
 		return generateIPRange(startIP, endIP), nil
 	}
-	return nil, fmt.Errorf("invalid input format")
+	return nil, fmt.Errorf("error parsing DHCP excluded IP addresses: %s ", ipString)
 }
 
 func parseSingleIP(ipString string) net.IP {
