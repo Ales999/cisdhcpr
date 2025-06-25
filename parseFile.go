@@ -31,8 +31,8 @@ func parseFile(filePath string) (dhcpConfig []DH, err error) {
 	// Вернем только networks, а не hosts, поскольку хосты уже добавлены к типу network.
 	var ret []DH
 	for _, d := range dhcpConfig {
-		// Если это не хост, а сеть, то добавляем в результат.
-		if !d.HostType {
+		// Если это не хост, а сеть, и валидный префикс,  то добавляем в результат.
+		if !d.HostType && d.Prefix.IsValid() {
 			ret = append(ret, d)
 		}
 	}
