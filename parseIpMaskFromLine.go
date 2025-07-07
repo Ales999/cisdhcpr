@@ -20,29 +20,29 @@ import (
 func parseIpMaskFromLine(line string) (netip.Addr, netip.Prefix, error) {
 
 	// Разбиваем строку на части по пробелам
-	cuttingByFour := strings.FieldsFunc(line, func(r rune) bool {
+	parts := strings.FieldsFunc(line, func(r rune) bool {
 		return r == ' '
 	})
 
 	// Проверяем, что строка содержит достаточное количество полей
-	if len(cuttingByFour) < 4 {
+	if len(parts) < 4 {
 		return netip.Addr{}, netip.Prefix{}, errors.New("недостаточное количество полей в строке")
 	}
 
-	ipStr := cuttingByFour[2]
-	ifaceIp, err := netip.ParseAddr(ipStr)
+	ipStr := parts[2]
+	addr, err := netip.ParseAddr(ipStr)
 	if err != nil {
 		return netip.Addr{}, netip.Prefix{}, fmt.Errorf("ошибка парсинга IP: %w", err)
 	}
 
-	parsedMask := cuttingByFour[3]
-	stringMask := net.IPMask(net.ParseIP(parsedMask).To4())
-	if stringMask == nil {
+	maskStr := parts[3]
+	ipMask := net.IPMask(net.ParseIP(maskStr).To4())
+	if ipMask == nil {
 		return netip.Addr{}, netip.Prefix{}, errors.New("неверная маска подсети")
 	}
-	lengthMask, _ := stringMask.Size()
+	lengthMask, _ := ipMask.Size()
 
-	var prefix = netip.PrefixFrom(ifaceIp, lengthMask)
+	var prefix = netip.PrefixFrom(addr, lengthMask)
 
-	return ifaceIp, prefix, nil
+	return addr, prefix, nil
 }
